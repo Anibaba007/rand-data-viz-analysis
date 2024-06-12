@@ -180,3 +180,4 @@ htmlwidgets::saveWidget(
   file = "poznan-chm.html",
   selfcontained = FALSE
 )
+
