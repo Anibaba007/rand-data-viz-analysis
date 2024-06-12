@@ -1,0 +1,180 @@
+---
+title: "London bike sharing"
+author: "Quadri A. Anibaba"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) #Whether to display code along with its results
+knitr::opts_chunk$set(warning =FALSE) #Whether to display warnings
+knitr::opts_chunk$set(message=FALSE) #Whether to display messages
+knitr::opts_chunk$set(fig.width = 20, fig.height = 12)# set the size of the plot.
+```
+## London bike sharing data - exploratory data analysis, visualization and correlations
+
+### Package instatllation
+First, install the necessary packages, upload dataset and import font type (**Asap SemiCondensed Black**).The font type is available on [*Google Fonts*](https://fonts.google.com/specimen/Asap). The font type is used for the plot title and axis labels. The *geomtextpath* package is used to create the plot title. The *extrafont* package is used to import the font type.
+
+```{r}
+pkgs <- c("ggplot2", "readr", "dplyr", "tibble", "tidyr", "lubridate","scales", "ragg", "systemfonts", "ggpointdensity", "ggblend", "ggdensity", "ggforce", "ggtext", "ggiraph", "remotes")
+
+install.packages(setdiff(pkgs, rownames(installed.packages())))
+
+remotes::install_github("AllanCameron/geomtextpath")
+foce=TRUE
+library(extrafont)
+font_import(paths = "C:/Users/user/AppData/Local/Microsoft/Windows/Fonts")
+loadfonts(device = "win") # load font after importing them. 
+```
+Import the dataset and create a new dataset for the day time bike sharing data (*bike_day*). We can also subset the dataset to include only the year 2016 and create a new dataset for the monthly bike sharing data (*bikes_monthly*). The *bikes_monthly* dataset is used to create plots for the monthly bike sharing data.
+
+```{r}
+bikes <- read.csv("london-bike-sharing-processed.csv")
+library(dplyr)
+bikes_day <- filter(bikes, day_night == "day")
+
+bikes_monthly <-
+  bikes |> 
+  filter(year == "2016") |> 
+  mutate(month = lubridate::month(date, label = TRUE)) |>
+  summarize(
+    count = sum(count), 
+    across(c(temp, humidity, wind_speed), mean),
+    .by = c(month, day_night)
+  )
+```
+Set the theme for all plot in the session. The 'theme_set()' function is used to set the theme for all plots in the session. The 'theme_update()' function is used to update the theme for all plots in the session. Reorder the season variable in the dataset to the desired order. The *forcats* package is used to reorder the season variable in the dataset. 
+```{r}
+#Load font, set theme and reorder season
+library(ggplot2)
+library(ggthemes)
+theme_set(theme_minimal(base_family = "Asap SemiCondensed Black", base_size = 25))
+theme_update(
+  plot.title.position = "plot",
+  plot.title = element_text(size = 30),
+  panel.grid.minor = element_blank()
+)
+bikes$season <- forcats::fct_inorder(bikes$season) 
+bikes_day$season <- forcats::fct_inorder(bikes_day$season)
+```
+#### How do humidity differ across the season? Visualize with *box plot*, *violin plot*, *half-eye plot* and *interval plot*. 
+```{r}
+ggplot(bikes, aes(season, humidity)) + geom_boxplot()
+```
+```{r}
+ggplot(bikes, aes(season, humidity)) + geom_violin()
+```
+```{r}
+ggplot(bikes, aes(x = season, y = humidity)) +
+  geom_violin() +
+  geom_boxplot(width = .1) # width of boxplot
+```
+```{r}
+ggplot(bikes, aes(x = season, y = humidity)) +
+  ggdist::stat_eye()
+```
+```{r}
+ggplot(bikes, aes(x = humidity, y = season)) +
+  ggdist::stat_halfeye()
+```
+```{r}
+ggplot(bikes, aes(x = humidity, y = season)) +
+  ggdist::stat_halfeye(.width = .5) ## default: c(.66, .95)
+```
+```{r}
+ggplot(bikes, aes(x = humidity, y = season)) +
+  ggdist::stat_halfeye(.width = c(0, 1), adjust = .5, shape = 23, point_size = 5)
+```
+```{r}
+ggplot(bikes, aes(x = humidity, y = season, fill = day_night)) +
+  ggdist::stat_halfeye(.width = 0, adjust = .5, slab_alpha = .5, shape = 21) +
+  scale_fill_manual(values = c("#7fcdbb", "#2ca25f"), name = NULL)
+```
+```{r}
+ggplot(bikes_day, aes(x = season, y = humidity)) +
+  ggdist::stat_interval()
+```
+```{r}
+ggplot(bikes_day, aes(x = season, y = humidity)) +
+  ggdist::stat_interval(.width = 1:4*.25, linewidth = 10) +
+  scale_color_viridis_d(option = "mako", direction = -1, end = .9)
+```
+##### How do bike sharing differ across season and workday?
+```{r}
+bikes$month <- as.factor(bikes$month) #convert to factors
+bikes$is_workday<-as.factor(bikes$is_workday) #convert to factors
+
+levels(bikes$month) <- c('JA','FB', 'MR', 'AP', 'MY', 'JN', 'JL', 'AU','SP','OT', 'NV', 'DR') # rename months
+
+levels(bikes$is_workday)<- c("Weekend","Workday") # rename workday
+
+s = c("#e66101","#fdb863","#b2abd2","#5e3c99")
+bikes %>% group_by(season) %>%
+  summarise(Sharing = sum(count)) %>%
+  ggplot(aes(season, Sharing, fill = season)) + 
+  geom_bar(stat = "identity", show.legend = F, color = 'gray50') +  
+  scale_fill_manual(values = s) +
+  labs(title = "Bike sharing by season", x = "", y = "Sum of bike shared") +
+  scale_y_continuous(labels = scales::label_comma())
+```
+```{r}
+bikes %>% group_by(season, is_workday) %>%
+  summarise(Sharing = sum(count)) %>%
+  ggplot(aes(season, Sharing, fill = season)) + 
+  geom_bar(stat = "identity", color = 'grey50', show.legend = F) +
+  scale_fill_manual(values = s) + facet_grid(~is_workday) +
+  labs(title = "Sharing by season and workday", x = "", y = "Sum of bike shared") +
+  scale_y_continuous(labels = scales::label_comma())
+```
+###### Bike sharing by month and workday
+```{r}
+wd = c("#99d8c9","#2ca25f")
+bikes%>% group_by(month,is_workday) %>%
+  summarise(Sharing = sum(count)) %>%
+  ggplot(aes(month, Sharing, fill = is_workday)) + 
+  geom_bar(stat = "identity", show.legend = F) +
+  scale_fill_manual(values = wd) +
+  facet_grid(~is_workday) + 
+  labs(title = "Bike sharing by month and workday", x = "", y = "Sum of bike shared") +
+  scale_y_continuous(labels = scales::label_comma())
+```
+```{r}
+ggplot(bikes, aes(x = season, y = humidity)) +
+  ggdist::stat_interval(.width = 1:4*.25) +
+  ggdist::stat_dots(position = position_nudge(x = .05), scale = .8) +
+  scale_color_viridis_d(option = "mako", direction = -1, end = .9)
+
+```
+```{r}
+library(forcats)
+# bike shared by weather type
+w = c('skyblue1','skyblue2','skyblue3','skyblue4','grey40', 'grey60')
+na.omit(bikes) %>% group_by(weather_type) %>%
+  summarise(Sharing = sum(count)) %>% 
+  ggplot(aes(fct_reorder(weather_type, Sharing), Sharing, fill = weather_type)) + 
+  geom_bar(stat = "identity") + scale_fill_manual(values = w) +
+  labs(title = "Bike sharing by weather type", x = "", y = "Sum of bike shared") +
+  scale_y_continuous(labels = scales::label_comma())
+```
+```{r}
+# bike shared by temperature feeling
+ct = round(cor(bikes$count, bikes$temp_feel),2)
+ggplot(bikes, aes(temp_feel,count)) + 
+  geom_point(aes(color=temp_feel), cex =4)  + geom_smooth(method = "lm", se = TRUE) +
+  scale_color_continuous(low="deepskyblue3",high='yellow') +
+  labs(title = sprintf("Number of bike shared to Temperature feeling (Correlation = %s)", ct),
+       x = "Temperature in Celsius", y = "Count of bike shared")
+```
+
+
+
+
+
+
+
+
+
+
