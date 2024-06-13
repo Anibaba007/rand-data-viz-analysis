@@ -66,4 +66,52 @@ arsenal_df %>%
   )
 dev.off()
 
+## Short on target ----
 
+ragg::agg_png(here(base_path, "plots", "Shots on Target.png"), res = 300,
+              width = 8, height = 7, units = "in")
+
+arsenal_df %>%
+  mutate(match_id = row_number(),
+         opponent_home_away = paste0(opponent, " (", home_away, ")"),
+         opponent_home_away = forcats::fct_inorder(opponent_home_away),
+         opponent_home_away = forcats::fct_rev(opponent_home_away)) %>% ggplot() +
+  geom_segment(aes(x = opponent_home_away, xend = opponent_home_away, 
+                   y = shortontarget_ht, yend = shortontarget_ft),
+               col = "grey50", size = 1.25) +
+  geom_point(aes(opponent_home_away, shortontarget_ht, fill = "Halftime"),
+             shape = 21, col = "white", size = 3) +
+  geom_point(aes(opponent_home_away, shortontarget_ft, fill = "Fulltime"),
+             shape = 21, col = "black",  size = 3) +
+  geom_text(aes(opponent_home_away, y = pmin(shortontarget_ht, shortontarget_ft), label = opponent_home_away),
+            hjust = 0, nudge_x = 0.3, nudge_y = 0.05,
+            family = "Roboto Condensed Bold", col = "grey80") +
+  geom_image(aes(opponent_home_away, y = pmin(shortontarget_ht, shortontarget_ft), image = image),
+             size = 0.03, nudge_x = 0.3, nudge_y = 0.005) +
+  scale_fill_manual(values = c("white", "#DF3021")) + 
+  coord_flip(ylim = c(0, 6.5)) +
+  guides(fill = "none" # guide_legend(title = NULL)
+  ) +
+  labs(
+    title = toupper("Arsenal FC Shots on Target in the last 5 Matches"),
+    subtitle = "DIFFERENCE BETWEEN <b style='color:#DF3021'>FIRST</b> AND <b style='color:white'>SECOND</b> HALF",
+    caption = "**Source:** arsenal.com | **Visualization:** Quadri A. Anibaba",
+    y = "Arsenal FC"
+  ) +
+  theme_minimal(base_family = "Roboto Condensed") +
+  theme(
+    plot.background = element_rect(color = NA, fill = "#373B4A"),
+    axis.text.y = element_blank(),
+    panel.grid = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.1, linetype = "dotted", color = "grey89"),
+    legend.position = "top",
+    legend.justification = "left",
+    text = element_text(color = "grey82"),
+    plot.title = element_text(color = "#9DD949", face = "bold", size = 18),
+    plot.subtitle = element_markdown(size = 12, margin = margin(b = 12)),
+    plot.caption = element_markdown(),
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(hjust = 0),
+    axis.text = element_text(color = "grey84")
+  )
+dev.off()
